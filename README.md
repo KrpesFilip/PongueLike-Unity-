@@ -1,99 +1,119 @@
 # Ponguelike
 
-A juiced-up take on classic **Pong**, built in Unity 6, with a light roguelike-style progression loop: beat the AI, earn points, and spend them in the shop on cosmetics and upgrades.
+**2D Pong Game with Persistent Meta-Progression, Built in Unity 6**
+
+A Pong game for one or two players with an AI opponent, physics-based ball movement and screen-shake, particle and audio feedback. Matches against the AI award points, which are stored between sessions and spent in a shop on cosmetic and gameplay modifiers for the player's paddle and the ball.
 
 ## Features
 
-- **Two game modes**: local Player vs Player, or Player vs AI
-- **Beatable AI**: tracks the ball with a dead zone and randomly varying speed
-- **Game feel**: the ball speeds up on every paddle hit, plus screen shake, particles, a ball trail and sound effects
-- **Persistent points**: earned in Player vs AI matches and saved between sessions
-- **Shop**: buy and equip skins and upgrades with your points
+- Two play modes: local Player vs Player and Player vs AI
+- AI opponent with a dead zone and randomized speed variance, so it can be beaten
+- Ball velocity increases ×1.1 on every paddle hit
+- Hit feedback: camera shake scaled to ball speed, particle bursts, trail renderer and SFX
+- First to 3 wins (configurable through `GameManager.maxScore`)
+- Pause menu (`P`) that freezes the game with `Time.timeScale`, and a master volume slider
+- Point economy in PvE: +1 for each goal, +3 for a win, +1 for a loss
+- Shop with buy and equip/unequip states, plus a full progress reset
+- Background music that keeps playing across scene loads
+- Windows and WebGL build targets
 
 ## Controls
 
-| Player | Up | Down |
+| Action | Player 1 | Player 2 |
 |---|---|---|
-| Player 1 (left) | `W` | `S` |
-| Player 2 (right) | `↑` | `↓` |
+| Move up | `W` | `↑` |
+| Move down | `S` | `↓` |
+| Pause | `P` | `P` |
 
-The first player to score **3** wins the match.
-
-## Progression
-
-Points are only awarded in **Player vs AI** mode:
-
-| Event | Points |
-|---|---|
-| You score a goal | +1 |
-| You win the match | +3 |
-| You lose the match | +1 |
-
-### Shop items
+## Shop items
 
 | Item | Cost | Effect |
 |---|---|---|
-| Geometric reference | 1 | Replaces the ball with a cube skin |
+| Geometric reference | 1 | Replaces the ball sprite with a cube skin |
 | The First Paddle | 1 | Alternative sprite for Player 1's paddle |
-| GrowthSpurt | 5 | Player 1's paddle becomes 1.5× longer |
+| GrowthSpurt | 5 | Makes Player 1's paddle 1.5× longer |
 
-Progress is stored in `PlayerPrefs`. The shop has a reset button that clears your points and purchases.
+## Tech stack
 
-## Getting started
+| Area | Technology |
+|---|---|
+| Engine | Unity 6 (6000.0.41f1), 2D (URP-free, built-in renderer) |
+| Language | C# |
+| Physics | Unity 2D Physics (`Rigidbody2D`, bouncy `PhysicsMaterial2D`) |
+| UI | uGUI, TextMesh Pro |
+| Input | Legacy Input Manager (`MovePlayer1` / `MovePlayer2` axes) |
+| Visual effects | Particle System, Trail Renderer, Post Processing Stack v2, Animator |
+| Persistence | `PlayerPrefs` |
+| Build targets | Windows (x86_64), WebGL |
 
-### Requirements
+## Architecture
 
-- **Unity 6000.0.41f1** (Unity 6). Other Unity 6 versions will likely work too.
+```
+StartMenu ──► Gnop (match) ──► Shop
+   ▲              │               │
+   └──────────────┴───────────────┘   SceneLoader (build index)
 
-### Running the project
+Gnop scene
+   GameManager (singleton)
+     ├── score state, win check, play mode (PvP / PvE)
+     ├── onReset event ─────────► Ball, Paddle (reset positions)
+     ├── GameUI ─── onStartGame ► Ball (serve), GameManager (clear score)
+     ├── GameSFX / ScreenShake
+     └── PlayerPrefs ◄────────── points earned in PvE
 
-1. Clone the repository:
-   ```bash
-   git clone <repo-url>
-   ```
-2. Open the folder in **Unity Hub** (*Add → Add project from disk*).
-3. Open `Assets/Scenes/StartMenu.unity` and press **Play**.
+   Ball ── OnTriggerEnter2D(ScoreZone) ──► GameManager.OnScoreReached
+        └─ OnCollisionEnter2D(Paddle | Wall) ──► SFX, particles, shake
 
-### Building
+Shop scene
+   ShopManager ──► ShopItemUI[]  (buy / equip, <item>_bought / <item>_equipped)
+        └──► PlayerPoints        (balance, spend, reset)
+                    │
+                    ▼
+               PlayerPrefs ──► read by Ball / Paddle on Start() to apply skins
+```
 
-The project targets **Windows** and **WebGL**. Open *File → Build Profiles*, make sure `StartMenu`, `Gnop` and `Shop` are included, then build for your platform.
+Systems are connected through C# `Action` events (`onReset`, `onStartGame`) rather than direct references. Shop state reaches gameplay only through `PlayerPrefs` keys, which `Ball` and `Paddle` read when the match scene loads.
 
 ## Project structure
 
 ```
 Assets/
-├── Scenes/
-│   ├── StartMenu.unity   # Entry point
-│   ├── Gnop.unity        # The Pong match
-│   └── Shop.unity        # Spend points on items
+├── Scenes/          StartMenu, Gnop, Shop
 ├── Scripts/
-│   ├── GameManager.cs    # Score, win checks, game modes, point rewards
-│   ├── Ball.cs           # Ball movement, speed-up, collisions, skins
-│   ├── Paddle.cs         # Player input, AI movement, paddle skins/upgrades
-│   ├── GameUI.cs         # Menus, scoreboard, end screens
-│   ├── ShopManager.cs    # Shop setup and purchase handling
-│   ├── ShopItemUI.cs     # Buy / equip state for each item
-│   ├── PlayerPoints.cs   # Saved point balance
-│   ├── ScreenShake.cs    # Camera shake
-│   └── ...               # Audio, scene loading, walls, score zones
-├── Art/                  # Sprites, materials, animations
-├── Audio/                # Music and SFX
-└── Fonts/                # Arcade-style fonts
+│   ├── GameManager.cs    Match state, scoring, play mode, point rewards
+│   ├── Ball.cs           Serve, speed-up, collision handling, ball skin
+│   ├── Paddle.cs         Player input, AI movement, paddle skin and length
+│   ├── GameUI.cs         Menus, scoreboard, pause, volume, end screens
+│   ├── ShopManager.cs    Item setup and purchase flow
+│   ├── ShopItemUI.cs     Per-item buy/equip state and persistence
+│   ├── PlayerPoints.cs   Point balance and progress reset
+│   ├── ScreenShake.cs    Coroutine-based camera shake
+│   ├── BGMMusic.cs       Persistent background music
+│   └── ...               SFX, score zones, walls, scene loading
+├── Art/             Sprites, materials, animations
+├── Audio/           Music and SFX
+└── Fonts/           Arcade-style TMP font assets
 ```
 
-## Built with
+## Getting started
 
-- [Unity 6](https://unity.com/) (2D)
-- TextMesh Pro
-- Unity Post Processing
+**Requirements:** Unity Hub with Unity **6000.0.41f1**
 
-## Credits
+```bash
+git clone <repo-url>
+```
 
-Third-party assets from the Unity Asset Store:
+1. In Unity Hub, choose **Add → Add project from disk** and select the cloned folder.
+2. Open `Assets/Scenes/StartMenu.unity` and press **Play**.
+3. To build, open **File → Build Profiles**, make sure `StartMenu`, `Gnop` and `Shop` are in the scene list in that order, select Windows or WebGL, and build.
 
-- **Free Rug Pack** and **Demo Floor** by Azerilo
-- **Pixel Art Character Package** by GDD – Quinnipiac
-- **Flat Icons [Free]** by Heathen Engineering
-- **ARCADECLASSIC** and **Karmatic Arcade** fonts
+> Scene order matters: `SceneLoader` navigates by build index.
 
-All rights to these assets belong to their respective authors.
+## Third-party assets
+
+- Free Rug Pack and Demo Floor by Azerilo
+- Pixel Art Character Package by GDD – Quinnipiac
+- Flat Icons [Free] by Heathen Engineering
+- ARCADECLASSIC and Karmatic Arcade fonts
+
+All third-party assets remain the property of their respective authors.
