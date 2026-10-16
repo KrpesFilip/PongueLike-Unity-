@@ -95,19 +95,7 @@ Assets/
 └── Fonts/           Arcade-style TMP font assets
 ```
 
-## Getting started
 
-**Requirements:** Unity Hub with Unity **6000.0.41f1**
-
-```bash
-git clone <repo-url>
-```
-
-1. In Unity Hub, choose **Add → Add project from disk** and select the cloned folder.
-2. Open `Assets/Scenes/StartMenu.unity` and press **Play**.
-3. To build, open **File → Build Profiles**, make sure `StartMenu`, `Gnop` and `Shop` are in the scene list in that order, select Windows or WebGL, and build.
-
-> Scene order matters: `SceneLoader` navigates by build index.
 
 ## Third-party assets
 
